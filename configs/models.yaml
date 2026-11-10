@@ -1,0 +1,41 @@
+# Default local provider. Override with --provider; Nymbric will not switch on its own.
+# qwen3:8b is a tool-capable default that fits an 8 GB RTX 4060 at Q4 with num_ctx 8192.
+default_provider: ollama
+default_model: ${DEFAULT_MODEL:-qwen3:8b}
+
+agents:
+  web_research:
+    provider: ${RESEARCH_PROVIDER:-ollama}
+    model: ${RESEARCH_MODEL:-qwen3:8b}
+    temperature: 0
+    num_ctx: 8192
+  graph_research:
+    provider: ${RESEARCH_PROVIDER:-ollama}
+    model: ${RESEARCH_MODEL:-qwen3:8b}
+    temperature: 0
+    num_ctx: 8192
+  scenario:
+    provider: ${SCENARIO_PROVIDER:-ollama}
+    model: ${SCENARIO_MODEL:-qwen3:8b}
+    temperature: 0
+    num_ctx: 8192
+  defender:
+    provider: ${DEFENDER_PROVIDER:-ollama}
+    model: ${DEFENDER_MODEL:-qwen3:8b}
+    temperature: 0
+    num_ctx: 8192
+  evaluator:
+    provider: ${EVALUATOR_PROVIDER:-ollama}
+    model: ${EVALUATOR_MODEL:-qwen3:8b}
+    temperature: 0
+    num_ctx: 8192
+  risk_analysis:
+    provider: ${ANALYSIS_PROVIDER:-ollama}
+    model: ${ANALYSIS_MODEL:-qwen3:8b}
+    temperature: 0
+    num_ctx: 8192
+  recipient:
+    provider: ${RECIPIENT_PROVIDER:-ollama}
+    model: ${RECIPIENT_MODEL:-qwen3:8b}
+    temperature: 0
+    num_ctx: 8192

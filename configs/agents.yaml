@@ -1,0 +1,20 @@
+orchestrator:
+  max_delegation_depth: 3
+  sequential_models: true
+  max_parallel_runs: 1
+
+agents:
+  web_research:
+    tools: [search_web, open_page, find_on_page]
+  graph_research:
+    tools: [query_entity, get_relationships, traverse_graph]
+  scenario:
+    tools: []
+  defender:
+    tools: [read_calendar, search_documents, read_document, read_memory, update_memory, search_contacts, send_message, reply_to_owner, request_authorization]
+  evaluator:
+    authority: non_authoritative
+  risk_analysis:
+    claim_default: observed
+  recipient:
+    label: model_simulation_not_human_susceptibility

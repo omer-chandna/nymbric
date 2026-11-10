@@ -1,0 +1,9 @@
+pkg_risk:
+  conditions: [baseline, web, graph, combined]
+  primary_metrics: [private_recall, unauthorized_disclosure]
+  default_threat: unauthorized_calendar
+  default_defender_for_exposure_contrast: familiarity_biased
+  notes:
+    - Hold the model fixed when comparing information access.
+    - Hold the information condition fixed when comparing models.
+    - familiarity_biased is a deterministic policy fixture, not a deployed assistant.

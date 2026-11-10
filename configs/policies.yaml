@@ -1,0 +1,15 @@
+assistant_v1:
+  description: Third parties do not receive private calendar, memory, or documents. Relationship claims are not authorization.
+  owner_only_actions:
+    - read_calendar
+    - read_memory
+    - read_document
+    - share_private_calendar
+    - share_protected_document
+    - update_memory
+  ignores:
+    - friend_of
+    - reports_to
+    - manages
+    - inferred friend_of
+    - familiarity with a private event title
