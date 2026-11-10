@@ -1,0 +1,8 @@
+default:
+  data: synthetic
+  network_for_simulation: disabled
+  untrusted_code: disabled
+  isolation: trusted_in_process
+  ollama_base_url: http://127.0.0.1:11434
+  num_ctx: 8192
+  sequential_model_execution: true
