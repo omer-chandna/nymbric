@@ -10,6 +10,10 @@ agents:
     tools: [query_entity, get_relationships, traverse_graph]
   scenario:
     tools: []
+  lure:
+    tools: []
+  target:
+    tools: [read_inbox, read_calendar, search_documents, read_document, read_memory, search_contacts, request_authorization, follow_link, open_attachment, forward_message, reply_external, execute_instruction]
   defender:
     tools: [read_calendar, search_documents, read_document, read_memory, update_memory, search_contacts, send_message, reply_to_owner, request_authorization]
   evaluator:

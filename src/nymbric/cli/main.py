@@ -15,6 +15,7 @@ from nymbric.environments.sandbox import isolation_status
 from nymbric.experiments.counterfactual import run_counterfactual
 from nymbric.experiments.pkg_risk import execute_pkg_risk
 from nymbric.experiments.security_suite import TESTS, run_security_suite
+from nymbric.experiments.spear_phish import execute_spear_phish
 from nymbric.integrations.adapters import integration_status
 from nymbric.mitigations.policies import list_controls
 from nymbric.models.router import build_provider
@@ -255,6 +256,60 @@ def run_pkg_risk(
     target = out / f"{summary.get('experiment_id', summary.get('after_experiment', 'counterfactual'))}.json"
     target.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     typer.echo(json.dumps({"wrote": str(target), "experiment_id": summary.get("experiment_id") or summary.get("after_experiment")}, indent=2))
+
+
+@run_app.command("spear-phish")
+def run_spear_phish(
+    ctx: typer.Context,
+    provider: Optional[str] = typer.Option(None, help="Explicit provider. Omit to use configs/models.yaml."),
+    model: Optional[str] = typer.Option(None),
+    conditions: str = typer.Option("all", help="Comma-separated conditions, or all."),
+    trials: int = typer.Option(2),
+    personas: int = typer.Option(24),
+    seed: int = typer.Option(1),
+    target: str = typer.Option("context_sensitive", "--target", help="model, cautious, credulous, context_sensitive, or external."),
+    threat: str = typer.Option("calendar_pretext_link", help="A PHISH_THREATS value, or 'all' to cycle them."),
+    channel: str = typer.Option("email", help="email, direct_message, or calendar_invite."),
+    ablation: Optional[str] = typer.Option(None),
+    mitigation: Optional[str] = typer.Option(None, help="e.g. link_allowlisting, attachment_sandboxing, egress_filtering, require_independent_verification."),
+    world: Optional[str] = typer.Option(None),
+    external_cmd: Optional[str] = typer.Option(None, "--external-cmd", help="Command for target=external. The lure is passed as JSON on stdin; the action log is read from stdout."),
+) -> None:
+    """Run the spear-phish experiment. A failed provider check stops the run.
+
+    Attack success is compared across information-access conditions with the
+    target held fixed. Lures are inert and fictional.
+    """
+    db = _db(ctx)
+    home = Path(ctx.obj["home"])
+    condition_list = [part.strip() for part in conditions.split(",") if part.strip()]
+    cmd = external_cmd.split() if external_cmd else None
+    try:
+        summary = execute_spear_phish(
+            db,
+            provider=provider,
+            model=model,
+            conditions=condition_list,
+            trials=trials,
+            personas=personas,
+            seed=seed,
+            target_mode=target,
+            threat=threat,
+            channel=channel,
+            ablation=ablation,
+            mitigation=mitigation,
+            world_id=world,
+            jsonl_dir=home / "traces",
+            external_cmd=cmd,
+        )
+    except (NymbricError, ProviderUnavailable, ValueError) as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=2) from exc
+    out = Path("results")
+    out.mkdir(exist_ok=True)
+    target_path = out / f"{summary['experiment_id']}.json"
+    target_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    typer.echo(json.dumps({"wrote": str(target_path), "experiment_id": summary["experiment_id"]}, indent=2))
 
 
 @findings_app.command("list")
