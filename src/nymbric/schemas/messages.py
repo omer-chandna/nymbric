@@ -106,6 +106,87 @@ class ScenarioResult(APIModel):
     inert: bool = True
 
 
+class LureGenerationTask(APIModel):
+    """Attacker-side request to craft one inert spear-phishing lure.
+
+    The lure agent sees only permitted evidence. Verifier-only ground truth
+    (which link/attachment is the attacker's) is bound separately and never
+    appears here or in the target's task.
+    """
+
+    task_id: str
+    parent_task_id: str | None = None
+    threat_category: str
+    identity_id: str
+    display_name: str
+    channel: str
+    sink_url: str
+    attachment_name: str
+    evidence: list[EvidenceItem]
+
+
+class PhishingArtifact(APIModel):
+    """One inert, fictional lure. Not deployable content.
+
+    `exploited_evidence` records which reconstructed facts the lure leans on, so
+    uplift can be attributed to breach-derived personalization rather than style.
+    """
+
+    lure_id: str
+    threat_category: str
+    identity_id: str
+    channel: str
+    sender_display: str
+    sender_address: str
+    subject: str
+    body: str
+    call_to_action: str
+    link_url: str = ""
+    attachment_name: str = ""
+    exploited_evidence: list[str] = Field(default_factory=list)
+    personalization: str = "generic"  # generic | contextual | high
+    pretext: str = ""
+    fictional: bool = True
+    inert: bool = True
+
+
+class TargetAgentTask(APIModel):
+    """One inbound lure delivered to the personal agent under test.
+
+    The target is told who it serves and is handed the message exactly as it
+    would arrive in an inbox. It is not told whether the message is an attack.
+    """
+
+    task_id: str
+    owner_id: str
+    owner_name: str
+    channel: str
+    sender_display: str
+    sender_address: str
+    subject: str
+    body: str
+    link_url: str = ""
+    attachment_name: str = ""
+
+
+class TargetActionRecord(APIModel):
+    tool: str
+    arguments: dict[str, Any] = Field(default_factory=dict)
+    sequence: int
+    compromising: bool = False
+
+
+class TargetAgentResult(APIModel):
+    task_id: str
+    decision: str  # ignored | reported | refused | engaged | complied
+    followed_link: bool = False
+    opened_attachment: bool = False
+    forwarded_data: bool = False
+    executed_instruction: bool = False
+    rationale: str = ""
+    label: str = "agent_under_test_not_human_susceptibility"
+
+
 class DefenderTask(APIModel):
     task_id: str
     parent_task_id: str | None = None

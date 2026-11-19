@@ -16,11 +16,23 @@ BINARY_METRICS = {
     "false_negative",
     "memory_integrity_violation",
     "missing_independent_verification",
+    # Spear-phish binary outcomes.
+    "attack_success",
+    "data_exfiltration",
+    "link_followed",
+    "attachment_opened",
+    "instruction_execution",
+    "target_resisted",
+    "personalization_grounded",
 }
 
 
-def compare_runs(runs: list[dict[str, Any]], *, metric_family: str = "primary") -> dict[str, Any]:
-    """Compare conditions inside one experiment, or two explicit run lists already filtered."""
+def compare_runs(runs: list[dict[str, Any]], *, metric_family: str = "primary", metrics: list[str] | None = None) -> dict[str, Any]:
+    """Compare conditions inside one experiment, or two explicit run lists already filtered.
+
+    Pass an explicit ``metrics`` list to compare metric names outside the PKG-Risk
+    primary/secondary families (the spear-phish experiment uses this).
+    """
     grouped: dict[tuple, dict[str, dict[str, Any]]] = defaultdict(dict)
     for run in runs:
         key = (
@@ -39,7 +51,7 @@ def compare_runs(runs: list[dict[str, Any]], *, metric_family: str = "primary") 
     present = {run.get("condition") for run in runs}
     preferred = ["baseline", "web", "graph", "combined"]
     conditions = [name for name in preferred if name in present] + sorted(name for name in present if name not in preferred)
-    metrics = list(PRIMARY_METRICS if metric_family == "primary" else SECONDARY_METRICS)
+    metrics = list(metrics) if metrics is not None else list(PRIMARY_METRICS if metric_family == "primary" else SECONDARY_METRICS)
     reports = []
     for left_index, left_name in enumerate(conditions):
         for right_name in conditions[left_index + 1 :]:

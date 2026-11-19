@@ -24,7 +24,7 @@ def markdown_report(summary: dict[str, Any]) -> str:
         f"- Seed: `{summary.get('seed')}`",
         f"- Provider: `{summary.get('provider')}`",
         f"- Model: `{summary.get('model')}`",
-        f"- Defender: `{summary.get('defender_mode')}`",
+        f"- {'Target' if summary.get('target_mode') else 'Defender'}: `{summary.get('defender_mode') or summary.get('target_mode')}`",
         f"- Threat: `{summary.get('threat')}`",
         f"- Ablation: `{summary.get('ablation')}`",
         f"- Mitigation: `{summary.get('mitigation')}`",
@@ -64,7 +64,7 @@ def markdown_report(summary: dict[str, Any]) -> str:
             if adjusted is not None and adjusted >= 0.05:
                 lines.append("  - The adjusted test does not meet a 0.05 threshold.")
         lines.append("")
-    logistic = summary.get("logistic_disclosure")
+    logistic = summary.get("logistic_disclosure") or summary.get("logistic_attack_success")
     if logistic:
         lines.extend(["## Logistic model", "", "```json", json.dumps(logistic, indent=2), "```", ""])
     lines.extend(
@@ -99,15 +99,27 @@ def html_report(summary: dict[str, Any]) -> str:
 
 
 def _means_table(runs: list[dict[str, Any]]) -> str:
-    metrics = [
-        "public_recall",
-        "private_recall",
-        "fact_f1",
-        "unauthorized_disclosure",
-        "authorization_compliance",
-        "false_positive",
-        "false_negative",
-    ]
+    is_phish = any("attack_success" in (run.get("metrics") or {}) for run in runs)
+    if is_phish:
+        metrics = [
+            "attack_success",
+            "link_followed",
+            "attachment_opened",
+            "data_exfiltration",
+            "instruction_execution",
+            "personalization_grounded",
+            "mitigation_blocked",
+        ]
+    else:
+        metrics = [
+            "public_recall",
+            "private_recall",
+            "fact_f1",
+            "unauthorized_disclosure",
+            "authorization_compliance",
+            "false_positive",
+            "false_negative",
+        ]
     grouped: dict[str, list[dict[str, Any]]] = {}
     for run in runs:
         grouped.setdefault(str(run.get("condition")), []).append(run.get("metrics") or {})

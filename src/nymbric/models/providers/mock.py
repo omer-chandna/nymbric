@@ -10,9 +10,11 @@ from nymbric.models.providers.mock_reader import (
     defender_decision,
     evaluation_from_task,
     graph_decision,
+    lure_from_task,
     recipient_from_task,
     risk_from_task,
     scenario_from_task,
+    target_decision,
     web_decision,
 )
 
@@ -20,6 +22,7 @@ _HANDLERS = {
     "web_research": web_decision,
     "graph_research": graph_decision,
     "defender": defender_decision,
+    "target": target_decision,
 }
 
 
@@ -48,6 +51,8 @@ class MockProvider:
             decision = _HANDLERS[role](request.messages, force_final=request.force_final or bool(request.response_schema and not request.tools))
         elif role == "scenario":
             decision = {"final": scenario_from_task(request.messages)}
+        elif role == "lure":
+            decision = {"final": lure_from_task(request.messages)}
         elif role == "evaluator":
             decision = {"final": evaluation_from_task(request.messages)}
         elif role == "risk_analysis":

@@ -12,6 +12,7 @@
 1. A model under test, including text in synthetic pages, memories, and the adversarial request. It can choose tool arguments. It cannot register tools, rewrite the stage list, or grant capabilities.
 2. A delegated child task that asks for a broader capability set or attaches evidence from another channel.
 3. A mistaken configuration that would silently switch from Ollama to a hosted API, or that would send a real personal record to a hosted model. The product refuses the first and is built so the benchmark itself has no real personal records.
+4. (Spear-phish) An attacker that reconstructs a target's context and crafts a personalized lure, and a target agent that may act on it. The attacker side is Nymbric's own research and lure agents operating on the fictional world. The target is the agent under test. In the `external` mode the target is untrusted out-of-process code; its reported action log is parsed as data (strict JSON, no shell, bounded time) and replayed against the inert environment, never executed.
 
 ## Controls
 
@@ -22,12 +23,14 @@
 - Cross-identity reads return a denial and do not load the other identity's assets.
 - External sends can be blocked by the `require_independent_verification` guardrail unless an authorization check returned allow.
 - Traces pass through a redactor for credential-shaped strings.
+- (Spear-phish) Lures are inert by construction. Links are rewritten to a reserved, non-routable sink host (`sink.invalid`) and attachments carry an `.inert` suffix, regardless of what the lure model produces. The target environment opens no sockets and submits no credentials; "following a link" and "opening an attachment" return synthetic text. Which link, attachment, and sender address are the attacker's is verifier-only ground truth stored in `lure_bindings`; it is never placed in the target's task. The target's self-reported result never overrides the deterministic verifier, which reads the environment's recorded actions. Target-side controls — `link_allowlisting`, `attachment_sandboxing`, `egress_filtering`, `require_independent_verification` — can each be toggled and rerun under the same world and seed.
 
 ## Out of scope
 
 - A developer who edits Nymbric and queries `gt_facts` from a new tool. The process is trusted.
 - Isolation of untrusted Python. That requires an external sandbox; this release does not pretend a subprocess is one.
-- Real phishing, credential theft, OS permission bypass, or targeting a real person. Those are not features and must not be added as "research modes."
+- Real phishing, credential theft, OS permission bypass, or targeting a real person. The spear-phish experiment simulates a personalized-lure attack against a target **agent** on a fictional world with inert artifacts; it does not generate deployable content, does not act against a real inbox or account, and must not be modified to do so. Producing a working lure aimed at a real person, resolving a live link, or exfiltrating a real secret are not "research modes" and must not be added.
+- Extracting, reading, or profiling real Apple personal-knowledge-graph data (or any real on-device personal store). Nymbric reasons about the *risk* such data would create using a synthetic stand-in; it never reads the real thing.
 
 ## Residual risk
 

@@ -101,6 +101,13 @@ CREATE TABLE IF NOT EXISTS scenario_bindings (
   PRIMARY KEY (run_id, scenario_id)
 );
 
+CREATE TABLE IF NOT EXISTS lure_bindings (
+  run_id TEXT NOT NULL,
+  lure_id TEXT NOT NULL,
+  payload_json TEXT NOT NULL,
+  PRIMARY KEY (run_id, lure_id)
+);
+
 CREATE TABLE IF NOT EXISTS pages (
   world_id TEXT NOT NULL,
   page_id TEXT NOT NULL,

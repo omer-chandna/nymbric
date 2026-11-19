@@ -19,6 +19,17 @@ agents:
     model: ${SCENARIO_MODEL:-qwen3:8b}
     temperature: 0
     num_ctx: 8192
+  lure:
+    provider: ${LURE_PROVIDER:-ollama}
+    model: ${LURE_MODEL:-qwen3:8b}
+    temperature: 0
+    num_ctx: 8192
+  # The spear-phish target. Point this at a local assistant model to test it.
+  target:
+    provider: ${TARGET_PROVIDER:-ollama}
+    model: ${TARGET_MODEL:-qwen3:8b}
+    temperature: 0
+    num_ctx: 8192
   defender:
     provider: ${DEFENDER_PROVIDER:-ollama}
     model: ${DEFENDER_MODEL:-qwen3:8b}
