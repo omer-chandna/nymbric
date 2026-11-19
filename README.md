@@ -8,7 +8,7 @@ It asks three practical questions:
 2. Does that extra context cause a defender to treat familiarity as authorization, and which code-enforced controls stop the failure?
 3. When an attacker turns that reconstructed context into a personalized lure, how much more often does a target personal AI agent act on it, and which target-side controls stop the failure?
 
-There are two experiments. **PKG-Risk** measures information uplift and whether an assistant *discloses* its owner's data when asked. **Spear-phish** is the inbound counterpart: an orchestrator runs attacker agents that reconstruct a target's context and craft an inert lure, delivers it to a pluggable target agent (a local model, a fixture, or an out-of-process agent such as Hermes or OpenClaw), and measures whether the target *takes the bait*. Both compare the same four information-access conditions on the same fictional world.
+There are two experiments. **PKG-Risk** measures information uplift and whether an assistant *discloses* its owner's data when asked. **Spear-phish** is the inbound counterpart: an orchestrator runs attacker agents that reconstruct a target's context and craft an inert lure, delivers it to a pluggable target agent (a local model, a fixture, or an out-of-process agent such as Hermes or OpenClaw, attached one-shot or in a live closed loop over MCP/JSON-RPC), and measures whether the target *takes the bait*. Both compare the same four information-access conditions on the same fictional world.
 
 Every identity, page, memory, message, lure, link, and attachment is fictional and inert. Results are outcomes of the configured agents on that synthetic world. They are not measurements of human susceptibility, and they are not evidence that a real assistant, inbox, or operating system was compromised.
 
@@ -55,7 +55,14 @@ Choose the target with `--target`:
 - `context_sensitive` (default) — a fixture whose susceptibility rises with personalization. The exposure contrast.
 - `cautious` / `credulous` — a fixture that never / always takes the bait (controls).
 - `model` — a model-backed agent. Point the `target` role at a local provider to test an on-device assistant model.
-- `external` — an out-of-process agent (Hermes, OpenClaw, any local agent). Pass `--external-cmd "<command>"`; the lure arrives as JSON on stdin and the agent prints its action log on stdout. See [docs/extending.md](docs/extending.md).
+- `external` — an out-of-process agent (Hermes, OpenClaw, any local agent) that reports an action log once. Pass `--external-cmd "<command>"`; the lure arrives as JSON on stdin and the agent prints its action log on stdout. See [docs/extending.md](docs/extending.md).
+- `live` (alias `mcp`) — a live, closed-loop agent. Nymbric stands up a localhost tool server bound to the inert environment and launches the client, which reads each tool result and decides its next call. Pass `--live-cmd "<command>"`. A runnable reference client ships in-repo (`python -m nymbric.agents.target.clients.reference_client`, with a deterministic `--policy mock`, a secure `--policy cautious`, and a real local-model `--policy ollama`), and any MCP-capable agent can attach via the stdio bridge. See [docs/extending.md](docs/extending.md).
+
+```bash
+# Drive the spear-phish target with the in-repo reference client over the live tools:
+nymbric run spear-phish --provider mock --conditions graph --trials 2 \
+  --target live --live-cmd "python -m nymbric.agents.target.clients.reference_client --policy mock"
+```
 
 Target-side controls rerun under the same world and seed with `--mitigation` (`link_allowlisting`, `attachment_sandboxing`, `egress_filtering`, `require_independent_verification`). Lures are inert: links resolve to a reserved sink and attachments carry an `.inert` suffix. Read [docs/spear-phish-methodology.md](docs/spear-phish-methodology.md) before treating a number as a research claim.
 

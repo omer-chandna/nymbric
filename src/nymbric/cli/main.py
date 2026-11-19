@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from pathlib import Path
 from typing import Optional
 
@@ -267,13 +268,16 @@ def run_spear_phish(
     trials: int = typer.Option(2),
     personas: int = typer.Option(24),
     seed: int = typer.Option(1),
-    target: str = typer.Option("context_sensitive", "--target", help="model, cautious, credulous, context_sensitive, or external."),
+    target: str = typer.Option("context_sensitive", "--target", help="model, cautious, credulous, context_sensitive, external, or live."),
     threat: str = typer.Option("calendar_pretext_link", help="A PHISH_THREATS value, or 'all' to cycle them."),
     channel: str = typer.Option("email", help="email, direct_message, or calendar_invite."),
     ablation: Optional[str] = typer.Option(None),
     mitigation: Optional[str] = typer.Option(None, help="e.g. link_allowlisting, attachment_sandboxing, egress_filtering, require_independent_verification."),
     world: Optional[str] = typer.Option(None),
     external_cmd: Optional[str] = typer.Option(None, "--external-cmd", help="Command for target=external. The lure is passed as JSON on stdin; the action log is read from stdout."),
+    live_cmd: Optional[str] = typer.Option(None, "--live-cmd", help="Client command for target=live. Nymbric stands up a tool server and launches this client, which drives the inert tools in a live loop. NYMBRIC_TARGET_URL and NYMBRIC_TARGET_TOKEN are set in its environment."),
+    live_timeout: float = typer.Option(60.0, "--live-timeout", help="Wall-clock seconds the target=live client may run before it is stopped."),
+    live_max_steps: int = typer.Option(32, "--live-max-steps", help="Maximum tool calls the target=live server will honour."),
 ) -> None:
     """Run the spear-phish experiment. A failed provider check stops the run.
 
@@ -284,6 +288,7 @@ def run_spear_phish(
     home = Path(ctx.obj["home"])
     condition_list = [part.strip() for part in conditions.split(",") if part.strip()]
     cmd = external_cmd.split() if external_cmd else None
+    live = shlex.split(live_cmd) if live_cmd else None
     try:
         summary = execute_spear_phish(
             db,
@@ -301,6 +306,9 @@ def run_spear_phish(
             world_id=world,
             jsonl_dir=home / "traces",
             external_cmd=cmd,
+            live_cmd=live,
+            live_timeout_s=live_timeout,
+            live_max_steps=live_max_steps,
         )
     except (NymbricError, ProviderUnavailable, ValueError) as exc:
         typer.echo(str(exc))

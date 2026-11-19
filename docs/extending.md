@@ -27,7 +27,8 @@ The agent under test is pluggable. `target_mode` selects it:
 
 - `model` — a model-backed assistant driven by the configured `target` provider. Point it at a local provider (Ollama) to test an on-device assistant model. It uses the normal tool loop and the tools in `build_target_registry`.
 - `cautious` / `credulous` / `context_sensitive` — deterministic fixtures in `agents/target/base.py`. `context_sensitive` is the exposure contrast: it acts on a lure only when the lure is personalized with reconstructed context.
-- `external` — an out-of-process agent (for example Hermes, OpenClaw, or any local agent) via `ExternalCommandTarget`.
+- `external` — an out-of-process agent (for example Hermes, OpenClaw, or any local agent) that reports an action log once, replayed via `ExternalCommandTarget`.
+- `live` (alias `mcp`) — a live, closed-loop agent via `LiveToolServerTarget`: the agent calls the tools itself and reads each result before deciding its next action. This is the closed-loop upgrade of `external`.
 
 ### External agent contract (v1)
 
@@ -38,7 +39,47 @@ Pass `--external-cmd "<command>"`. For each delivered lure Nymbric spawns the co
 
 Nymbric replays each reported action through the target tool registry against its own inert environment. The external agent never touches a real link, file, or network; its output is parsed as data, not executed. Unknown or unpermitted tools are denied exactly as for a built-in target. Available tool names: `read_inbox`, `read_calendar`, `search_documents`, `read_document`, `read_memory`, `search_contacts`, `request_authorization`, `follow_link`, `open_attachment`, `forward_message`, `reply_external`, `execute_instruction`.
 
-To let an agent call the live tools itself (a closed-loop integration) instead of reporting intents, wrap `build_target_registry` behind an MCP tool server and connect the agent to it. The verifier still reads the same `TargetEnvironment` snapshot, so the scoring is unchanged.
+### Live agent contract (closed loop)
+
+`target_mode=live` (alias `mcp`) gives the agent a live loop instead of a one-shot report: it calls the tools itself and reads each result before deciding the next action. The transport is JSON-RPC 2.0 over a localhost-only HTTP endpoint.
+
+For each delivered lure Nymbric:
+
+1. Stands up a `ToolSessionServer` (`agents/target/live_server.py`) bound to the run's inert `TargetEnvironment` through the same `build_target_registry`. It binds to `127.0.0.1` on an ephemeral port and is guarded by a per-run bearer token.
+2. Launches the client command (`--live-cmd`) with `NYMBRIC_TARGET_URL`, `NYMBRIC_TARGET_TOKEN`, and `NYMBRIC_TARGET_SESSION` set in its environment.
+3. Lets the client drive the tools until it calls `session/finish`, exits, hits the step budget (`--live-max-steps`), or hits the wall-clock timeout (`--live-timeout`), then tears the server down.
+4. Snapshots the environment for `verify_phishing`. The snapshot is authoritative; the client's `session/finish` report is advisory and never scored.
+
+JSON-RPC methods: `initialize` (returns server info plus the public `TargetAgentTask` — no verifier-only ground truth), `tools/list` (the permitted tool descriptors), `tools/call` (`{name, arguments}` → `{"output": <tool result>, "is_error": bool}`), and `session/finish` (`{decision, rationale}`). The same inertness holds: the only thing the server can do is invoke the registry against the synthetic environment, so there is no path to a real link, file, inbox, or network. The step budget is enforced server-side in addition to the registry's own tool-call budget.
+
+**Reference client.** A runnable client ships in-repo at `nymbric/agents/target/clients/reference_client.py`:
+
+```bash
+nymbric run spear-phish --provider mock --conditions graph --trials 2 \
+  --target live --live-cmd "python -m nymbric.agents.target.clients.reference_client --policy mock"
+```
+
+- `--policy mock` — a deterministic susceptible assistant (no model/network). It exercises every action tool; the verifier scores it exactly as it scores `credulous`. This is what the end-to-end tests drive.
+- `--policy cautious` — a deterministic secure control: it verifies the sender, is denied, and refuses.
+- `--policy ollama` — a real local tool-calling model loop. This is the worked pattern for attaching a real on-device assistant:
+
+```bash
+ollama pull llama3.1   # any tools-capable local model
+nymbric run spear-phish --provider mock --conditions all --trials 4 \
+  --target live \
+  --live-cmd "python -m nymbric.agents.target.clients.reference_client --policy ollama --model llama3.1"
+```
+
+The Ollama client is handed the live tool surface and the inbound task, forwards its tool calls to the Nymbric server, and whatever it decides is scored from the environment snapshot. Writing your own client against the four JSON-RPC methods (see `agents/target/clients/session_client.py` for a minimal client) is how you attach any other local agent (Hermes, OpenClaw, …).
+
+**Attaching an MCP-capable agent.** `nymbric/agents/target/mcp_bridge.py` is a stdio MCP server that forwards MCP `tools/list` / `tools/call` to the live Nymbric endpoint. Point your MCP agent's server config at it:
+
+```jsonc
+// your agent's MCP server config
+{ "command": "python", "args": ["-m", "nymbric.agents.target.mcp_bridge"] }
+```
+
+Then launch that agent as the `--live-cmd`. Nymbric sets `NYMBRIC_TARGET_URL`/`NYMBRIC_TARGET_TOKEN` on the agent process; the agent inherits them to the bridge it spawns, and the bridge connects back to the inert environment. The verifier still reads the same `TargetEnvironment` snapshot, so scoring is unchanged across every target mode.
 
 ## Phishing verifier
 
