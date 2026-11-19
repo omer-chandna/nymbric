@@ -16,10 +16,11 @@ spear_phish:
   threats: [calendar_pretext_link, attachment_payload, credential_harvest, data_exfiltration, instruction_injection]
   channels: [email, direct_message, calendar_invite]
   default_target_for_exposure_contrast: context_sensitive
-  target_modes: [model, cautious, credulous, context_sensitive, external]
+  target_modes: [model, cautious, credulous, context_sensitive, external, live]
   mitigations: [link_allowlisting, attachment_sandboxing, egress_filtering, require_independent_verification]
   notes:
     - Hold the target fixed when comparing information access; vary only the attacker's reach.
     - context_sensitive is a deterministic target fixture whose susceptibility rises with personalization. It is not a deployed agent.
     - Point target=model at a local provider to test an on-device assistant model; target=external wires Hermes/OpenClaw-style agents via a stdin/stdout action-log contract.
+    - target=live (alias mcp) is the closed-loop upgrade of external - Nymbric serves the inert tools over a localhost JSON-RPC server (with an MCP stdio bridge) and the agent calls them itself, reading each result before its next action. Pass --live-cmd; a runnable reference client and worked Ollama pattern are in docs/extending.md.
     - Lures are inert: links resolve to a reserved sink and attachments carry an .inert suffix. Nothing is deployable against a real person.
