@@ -189,6 +189,52 @@ def _pair(grouped, left_name: str, right_name: str, metrics: list[str]) -> dict[
     }
 
 
+def compare_campaign_regimes(osint: dict[str, Any], enhanced: dict[str, Any]) -> dict[str, Any]:
+    """Compare the OSINT-only and breach-enhanced regimes of one campaign.
+
+    Both regimes run on the same world, seed, entry, goal, and node defender, so
+    the only thing that changes is the attacker's information access. Under the
+    deterministic mock there is one campaign per regime (no sampling variance),
+    so this is a direct matched difference, not a bootstrap interval.
+    """
+    om = osint.get("metrics") or {}
+    em = enhanced.get("metrics") or {}
+    keys = (
+        "objective_reached",
+        "nodes_compromised",
+        "blast_radius",
+        "blast_radius_count",
+        "depth_reached",
+        "nodes_attacked",
+        "attack_success_rate",
+    )
+    deltas = {}
+    for key in keys:
+        left = om.get(key)
+        right = em.get(key)
+        deltas[key] = (right - left) if isinstance(left, (int, float)) and isinstance(right, (int, float)) else None
+    if em.get("objective_reached") and not om.get("objective_reached"):
+        headline = (
+            "Breach-enhanced personalization reached the objective and a larger blast radius than "
+            "OSINT-only, holding world, seed, entry, defender, and threat fixed."
+        )
+    elif (em.get("blast_radius_count") or 0) > (om.get("blast_radius_count") or 0):
+        headline = "Breach-enhanced personalization spread further than OSINT-only under identical controls."
+    else:
+        headline = "No regime separation in this configuration (e.g. a defender held the chain at the entry)."
+    return {
+        "osint": om,
+        "enhanced": em,
+        "deltas": deltas,
+        "claim_level": "deterministic_single_world",
+        "headline": headline,
+        "limitation": (
+            "A regime difference is a property of the synthetic world and the recorded node defender. "
+            "It is not an estimate of real-world blast radius, human susceptibility, or an actual intrusion."
+        ),
+    }
+
+
 def _match_key(run: dict[str, Any]) -> tuple:
     return (
         run.get("identity_id"),
