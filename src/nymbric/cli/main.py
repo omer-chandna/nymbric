@@ -12,6 +12,7 @@ from nymbric import __version__
 from nymbric.core.config import load_models
 from nymbric.core.errors import ConfigError, NymbricError, ProviderUnavailable
 from nymbric.environments.sandbox import isolation_status
+from nymbric.experiments.campaign import execute_campaign
 from nymbric.experiments.counterfactual import run_counterfactual
 from nymbric.experiments.pkg_risk import execute_pkg_risk
 from nymbric.experiments.security_suite import TESTS, run_security_suite
@@ -310,6 +311,69 @@ def run_spear_phish(
     target_path = out / f"{summary['experiment_id']}.json"
     target_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
     typer.echo(json.dumps({"wrote": str(target_path), "experiment_id": summary["experiment_id"]}, indent=2))
+
+
+@run_app.command("campaign")
+def run_campaign(
+    ctx: typer.Context,
+    entry: Optional[str] = typer.Option(None, "--entry", help="Entry persona id (e.g. p0000). Omit for the first persona."),
+    goal: str = typer.Option("crown-jewel", "--goal", help="crown-jewel, compromise:<persona>, exfiltrate:<asset>, or nodes:<N>."),
+    regime: str = typer.Option("both", "--regime", help="osint, enhanced, or both."),
+    max_depth: int = typer.Option(3, "--max-depth"),
+    max_nodes: int = typer.Option(12, "--max-nodes"),
+    target: str = typer.Option("context_sensitive", "--target", help="Node defender: model, cautious, credulous, context_sensitive, or external."),
+    mitigation: Optional[str] = typer.Option(None, "--mitigation", help="Node control, e.g. require_independent_verification, egress_filtering."),
+    threat: str = typer.Option("calendar_pretext_link", help="A PHISH_THREATS value, or 'all'."),
+    provider: Optional[str] = typer.Option(None, help="Explicit provider. Omit to use configs/models.yaml."),
+    model: Optional[str] = typer.Option(None),
+    personas: int = typer.Option(16, "--personas"),
+    seed: int = typer.Option(1, "--seed"),
+    world: Optional[str] = typer.Option(None),
+) -> None:
+    """Run the campaign emulator: a goal-directed, multi-stage kill chain over the
+    synthetic world, comparing OSINT-only against breach-enhanced reach.
+
+    Every stage is modelled on fictional data and is inert. Nothing touches a real
+    device, inbox, account, or person.
+    """
+    db = _db(ctx)
+    try:
+        summary = execute_campaign(
+            db,
+            personas=personas,
+            seed=seed,
+            entry=entry,
+            goal=goal,
+            regime=regime,
+            max_depth=max_depth,
+            max_nodes=max_nodes,
+            target_mode=target,
+            threat=threat,
+            mitigation=mitigation,
+            provider=provider,
+            model=model,
+            world_id=world,
+        )
+    except (NymbricError, ProviderUnavailable, ValueError) as exc:
+        typer.echo(str(exc))
+        raise typer.Exit(code=2) from exc
+    out = Path("results")
+    out.mkdir(exist_ok=True)
+    target_path = out / f"{summary['experiment_id']}.json"
+    target_path.write_text(json.dumps(summary, indent=2), encoding="utf-8")
+    comparison = summary.get("comparison") or {}
+    typer.echo(
+        json.dumps(
+            {
+                "wrote": str(target_path),
+                "experiment_id": summary["experiment_id"],
+                "entry": f"{summary['entry_id']} ({summary['entry_name']})",
+                "goal": summary["goal"]["description"],
+                "headline": comparison.get("headline"),
+            },
+            indent=2,
+        )
+    )
 
 
 @findings_app.command("list")

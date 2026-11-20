@@ -7,8 +7,9 @@ It asks three practical questions:
 1. How much more can an agent reconstruct when it is given a private personal knowledge graph, compared with searching a matching public web?
 2. Does that extra context cause a defender to treat familiarity as authorization, and which code-enforced controls stop the failure?
 3. When an attacker turns that reconstructed context into a personalized lure, how much more often does a target personal AI agent act on it, and which target-side controls stop the failure?
+4. When a goal-directed offensive agent chains those lures — foothold, pull the breached node's knowledge graph, pivot to its neighbours — how far does it get through a network of personal agents, and which control stops the chain?
 
-There are two experiments. **PKG-Risk** measures information uplift and whether an assistant *discloses* its owner's data when asked. **Spear-phish** is the inbound counterpart: an orchestrator runs attacker agents that reconstruct a target's context and craft an inert lure, delivers it to a pluggable target agent (a local model, a fixture, or an out-of-process agent such as Hermes or OpenClaw), and measures whether the target *takes the bait*. Both compare the same four information-access conditions on the same fictional world.
+There are three experiments. **PKG-Risk** measures information uplift and whether an assistant *discloses* its owner's data when asked. **Spear-phish** is the inbound counterpart: an orchestrator runs attacker agents that reconstruct a target's context and craft an inert lure, delivers it to a pluggable target agent (a local model, a fixture, or an out-of-process agent such as Hermes or OpenClaw), and measures whether the target *takes the bait*. **Campaign** is the multi-stage layer: a goal-directed emulator of an Artex-style offensive AI agent that walks a kill chain (initial access → PKG extraction → lateral movement → objective) over the persona graph, comparing an OSINT-only attacker against a breach-enhanced one. PKG-Risk and Spear-phish compare the same four information-access conditions on the same fictional world.
 
 Every identity, page, memory, message, lure, link, and attachment is fictional and inert. Results are outcomes of the configured agents on that synthetic world. They are not measurements of human susceptibility, and they are not evidence that a real assistant, inbox, or operating system was compromised.
 
@@ -59,13 +60,31 @@ Choose the target with `--target`:
 
 Target-side controls rerun under the same world and seed with `--mitigation` (`link_allowlisting`, `attachment_sandboxing`, `egress_filtering`, `require_independent_verification`). Lures are inert: links resolve to a reserved sink and attachments carry an `.inert` suffix. Read [docs/spear-phish-methodology.md](docs/spear-phish-methodology.md) before treating a number as a research claim.
 
+## Campaign quickstart
+
+```bash
+nymbric run campaign --provider mock --regime both --personas 16 --seed 42 --max-nodes 10
+nymbric report <experiment_id> --format md
+```
+
+This runs a goal-directed, multi-stage kill chain from an entry persona: it earns a foothold with a spear-phish sub-run, pulls the compromised node's synthetic PKG, and pivots to adjacent personas — walking the attack graph under `max_depth` / `max_nodes` budgets. It runs two regimes on the same world: `osint` (public web info only, every hop) and `enhanced` (compromising a node unlocks its PKG to personalize the next hops). With the default `context_sensitive` node defender, the breach-enhanced regime reaches a larger blast radius and the objective while OSINT-only stalls — because only the breach surfaces the private meeting that lifts a lure to high personalization.
+
+Every stage is **modelled** over the fictional persona graph and is inert: "initial access", "PKG extraction", and "lateral movement" are computations over synthetic rows with the configured defender deciding each step. Nothing touches a real device, inbox, account, network, or on-device knowledge graph.
+
+- `--goal` — `crown-jewel` (default; exfiltrate the deepest reachable persona's restricted memo), `compromise:<persona>`, `exfiltrate:<asset>`, or `nodes:<N>`.
+- `--entry` — the entry persona id (omit for the first persona).
+- `--target` — the node defender, as in spear-phish (`context_sensitive`, `cautious`, `credulous`, `model`, `external`). A `cautious` node holds the chain at the entry.
+- `--mitigation` — a per-node control rerun under the same world and seed.
+
+Read [docs/campaign-methodology.md](docs/campaign-methodology.md) before treating a number as a research claim.
+
 ## Local models
 
 Ollama is the intended local provider. This repository's automated tests do **not** execute a local model. See [docs/local-models.md](docs/local-models.md) for an RTX 4060 / WSL2 setup and the exact command. If Ollama is down, `nymbric models check --provider ollama` exits with a diagnostic and does not switch providers.
 
 ## Layout
 
-The orchestrator is a deterministic stage machine in `src/nymbric/orchestration` (`orchestrator.py` for PKG-Risk, `spear_phish.py` for the spear-phish experiment; both reuse the research spine in `research_stage.py`). Specialists (web research, graph research, scenario, defender, evaluation, risk, recipient, plus the spear-phish lure and target agents) share one tool loop. Permissions are checked in the tool registry. Verifier-only labels live in separate tables (`scenario_bindings`, `lure_bindings`) and are not part of defender or target tasks.
+The orchestrator is a deterministic stage machine in `src/nymbric/orchestration` (`orchestrator.py` for PKG-Risk, `spear_phish.py` for the spear-phish experiment, `campaign.py` for the multi-stage campaign that reuses the spear-phish single-node attack per hop; all reuse the research spine in `research_stage.py`). Specialists (web research, graph research, scenario, defender, evaluation, risk, recipient, plus the spear-phish lure and target agents) share one tool loop. Permissions are checked in the tool registry. Verifier-only labels live in separate tables (`scenario_bindings`, `lure_bindings`) and are not part of defender or target tasks.
 
 Read [ARCHITECTURE.md](ARCHITECTURE.md), [THREAT_MODEL.md](THREAT_MODEL.md), and [docs/methodology.md](docs/methodology.md) before treating a number as a research claim.
 
