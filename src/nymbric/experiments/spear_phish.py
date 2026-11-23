@@ -46,6 +46,9 @@ def execute_spear_phish(
     experiment_id: str | None = None,
     jsonl_dir: Path | None = None,
     external_cmd: list[str] | None = None,
+    live_cmd: list[str] | None = None,
+    live_timeout_s: float = 60.0,
+    live_max_steps: int = 32,
 ) -> dict[str, Any]:
     models = load_models()
     chosen_provider = provider or models.default_provider
@@ -104,6 +107,9 @@ def execute_spear_phish(
                 budget=Budget(max_tool_calls=48, max_steps=16, max_search_calls=8, max_pages_read=5, max_tokens=120000, max_seconds=180),
                 trial_index=trial_index,
                 external_cmd=external_cmd,
+                live_cmd=live_cmd,
+                live_timeout_s=live_timeout_s,
+                live_max_steps=live_max_steps,
                 jsonl_path=jsonl_path,
             )
             state = SpearPhishOrchestrator(db, providers).run(spec)

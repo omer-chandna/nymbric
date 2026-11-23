@@ -24,6 +24,7 @@ from nymbric.agents.lure.agent import LureAgent
 from nymbric.agents.risk.agent import RiskAgent
 from nymbric.agents.target.base import ModelTargetAgent, run_target_fixture
 from nymbric.agents.target.external import ExternalCommandTarget
+from nymbric.agents.target.live import DEFAULT_MAX_STEPS, DEFAULT_TIMEOUT_S, LiveToolServerTarget
 from nymbric.context.isolation import filter_evidence_for_permissions
 from nymbric.core.errors import Cancelled, ConcurrentRunError, NymbricError
 from nymbric.core.types import (
@@ -75,6 +76,9 @@ class PhishRunSpec:
         budget: Budget | None = None,
         trial_index: int = 0,
         external_cmd: list[str] | None = None,
+        live_cmd: list[str] | None = None,
+        live_timeout_s: float = DEFAULT_TIMEOUT_S,
+        live_max_steps: int = DEFAULT_MAX_STEPS,
         jsonl_path=None,
     ):
         self.experiment_id = experiment_id
@@ -93,6 +97,9 @@ class PhishRunSpec:
         self.budget = budget or Budget(max_tool_calls=48, max_steps=16, max_search_calls=8, max_pages_read=5, max_tokens=120000, max_seconds=180)
         self.trial_index = trial_index
         self.external_cmd = external_cmd
+        self.live_cmd = live_cmd
+        self.live_timeout_s = live_timeout_s
+        self.live_max_steps = live_max_steps
         self.jsonl_path = jsonl_path
 
 
@@ -337,6 +344,17 @@ class SpearPhishOrchestrator:
             if not spec.external_cmd:
                 raise NymbricError("target_mode 'external' requires an external command. Pass --external-cmd.")
             result = ExternalCommandTarget(spec.external_cmd).run(task, registry, trace, spec.budget, deadline, self.cancel_event)
+        elif mode in {"live", "mcp"}:
+            if not spec.live_cmd:
+                raise NymbricError(
+                    "target_mode 'live' requires a client command that connects to the tool server. Pass --live-cmd "
+                    "(e.g. the reference client: --live-cmd \"python -m nymbric.agents.target.clients.reference_client\")."
+                )
+            result = LiveToolServerTarget(
+                spec.live_cmd,
+                timeout_s=spec.live_timeout_s,
+                max_steps=spec.live_max_steps,
+            ).run(task, registry, trace, spec.budget, deadline, self.cancel_event)
         elif mode in TARGET_FIXTURES:
             result = run_target_fixture(
                 mode,
@@ -346,7 +364,9 @@ class SpearPhishOrchestrator:
                 owner_secret_markers=binding.get("owner_secret_markers", []),
             )
         else:
-            raise NymbricError(f"Unknown target_mode '{mode}'. Expected model, cautious, credulous, context_sensitive, or external.")
+            raise NymbricError(
+                f"Unknown target_mode '{mode}'. Expected model, cautious, credulous, context_sensitive, external, or live."
+            )
         state.agent_outputs["target_result"] = result
         state.agent_outputs["target_snapshot"] = env.snapshot()
 
