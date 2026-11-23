@@ -12,6 +12,8 @@ def dumps(summary: dict[str, Any]) -> str:
 
 
 def markdown_report(summary: dict[str, Any]) -> str:
+    if summary.get("experiment") == "campaign" or "regimes" in summary:
+        return _campaign_markdown(summary)
     lines = [
         f"# Nymbric report {summary.get('experiment_id', '')}",
         "",
@@ -96,6 +98,87 @@ def html_report(summary: dict[str, Any]) -> str:
 <body><pre>{body}</pre></body>
 </html>
 """
+
+
+def _campaign_markdown(summary: dict[str, Any]) -> str:
+    goal = summary.get("goal") or {}
+    lines = [
+        f"# Nymbric campaign report {summary.get('experiment_id', '')}",
+        "",
+        summary.get("label") or "Synthetic, inert multi-stage attack emulation.",
+        "",
+        "## Configuration",
+        "",
+        f"- World: `{summary.get('world_id')}`",
+        f"- Content hash: `{summary.get('content_hash')}`",
+        f"- Seed: `{summary.get('seed')}`",
+        f"- Provider: `{summary.get('provider')}`  Model: `{summary.get('model')}`",
+        f"- Node defender: `{summary.get('target_mode')}`  Mitigation: `{summary.get('mitigation')}`",
+        f"- Threat: `{summary.get('threat')}`  Personas: `{summary.get('personas')}`",
+        f"- Entry: `{summary.get('entry_id')}` ({summary.get('entry_name')})",
+        f"- Goal: {goal.get('description') or goal.get('kind')}",
+        f"- Budgets: max_depth `{summary.get('max_depth')}`, max_nodes `{summary.get('max_nodes')}`",
+        "",
+        "## Regime outcomes",
+        "",
+        _campaign_regime_table(summary.get("regimes") or {}),
+        "",
+    ]
+    comparison = summary.get("comparison") or {}
+    if comparison:
+        lines += [
+            "## OSINT vs breach-enhanced",
+            "",
+            f"**{comparison.get('headline')}**",
+            "",
+            f"Claim level: `{comparison.get('claim_level')}`.",
+            "",
+        ]
+        for metric, delta in (comparison.get("deltas") or {}).items():
+            lines.append(f"- `{metric}`: enhanced − osint = {_fmt(delta)}")
+        lines.append("")
+        if comparison.get("limitation"):
+            lines += [comparison["limitation"], ""]
+    for name, result in (summary.get("regimes") or {}).items():
+        lines += [f"## Attack graph — {name}", "", _campaign_graph(result), ""]
+    lines += [
+        "## Limits",
+        "",
+        "Initial access, PKG extraction, and lateral movement are modelled over a fictional persona graph.",
+        "A node falls only when its deterministic spear-phish verifier records a compromising action.",
+        "These figures are not an observation of a real intrusion, a real blast radius, or human susceptibility.",
+        "",
+    ]
+    return "\n".join(lines)
+
+
+def _campaign_regime_table(regimes: dict[str, Any]) -> str:
+    metrics = ["objective_reached", "nodes_compromised", "nodes_attacked", "blast_radius", "depth_reached", "controls_held_count"]
+    header = "| Regime | " + " | ".join(metrics) + " |"
+    rule = "| --- | " + " | ".join("---" for _ in metrics) + " |"
+    rows = [header, rule]
+    for name, result in regimes.items():
+        m = result.get("metrics") or {}
+        cells = [_fmt(m.get(metric)) for metric in metrics]
+        rows.append(f"| {name} | " + " | ".join(cells) + " |")
+    return "\n".join(rows) if regimes else "No regimes were recorded."
+
+
+def _campaign_graph(result: dict[str, Any]) -> str:
+    nodes = result.get("nodes") or []
+    if not nodes:
+        return "No nodes were attacked."
+    lines = ["| Depth | Persona | Condition | Personalization | Foothold | Control held |", "| --- | --- | --- | --- | --- | --- |"]
+    for node in nodes:
+        fell = "✓" if node.get("attack_success") else "—"
+        lines.append(
+            f"| {node.get('depth')} | `{node.get('persona_id')}` {node.get('name')} | {node.get('condition')} | "
+            f"{node.get('personalization')} | {fell} | {node.get('control_held') or ''} |"
+        )
+    edges = result.get("edges") or []
+    compromised_edges = sum(1 for e in edges if e.get("led_to_compromise"))
+    lines += ["", f"Pivots attempted: {len(edges)}; pivots that led to a compromise: {compromised_edges}."]
+    return "\n".join(lines)
 
 
 def _means_table(runs: list[dict[str, Any]]) -> str:

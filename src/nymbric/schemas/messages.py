@@ -283,3 +283,102 @@ class RecipientSimulation(APIModel):
     noticed_inconsistency: bool
     simulated_unsafe_response: bool
     label: str = "model_simulation_not_human_susceptibility"
+
+
+# --- Campaign experiment ---------------------------------------------------
+# A goal-directed, multi-stage red-team emulator. Every stage ("initial access",
+# "PKG extraction", "lateral movement") is MODELLED over the synthetic persona
+# graph and is fully inert. No real device, inbox, account, or person is touched.
+
+
+class CampaignGoal(APIModel):
+    """What the emulated offensive agent is trying to achieve.
+
+    - ``compromise_persona``: earn a foothold on ``target_persona``.
+    - ``exfiltrate_asset``: compromise the owner of ``target_asset`` (e.g. a
+      ``restricted`` compensation memo) so the asset is pulled with their PKG.
+    - ``compromise_count``: compromise at least ``count`` personas.
+    """
+
+    kind: str  # compromise_persona | exfiltrate_asset | compromise_count
+    target_persona: str = ""
+    target_asset: str = ""
+    count: int = 0
+    description: str = ""
+
+
+class CampaignSpec(APIModel):
+    """One campaign run: one entry persona, one goal, one information regime."""
+
+    experiment_id: str
+    world_id: str
+    seed: int
+    entry_id: str
+    goal: CampaignGoal
+    regime: str  # osint | enhanced
+    max_depth: int = 3
+    max_nodes: int = 12
+    target_mode: str = "context_sensitive"
+    mitigation: str | None = None
+    provider: str = "mock"
+    model: str = "mock-deterministic"
+    threat: str = "calendar_pretext_link"
+    channel: str = "email"
+
+
+class CampaignNodeResult(APIModel):
+    """One attempted foothold on one persona, scored by the authoritative verifier."""
+
+    persona_id: str
+    name: str
+    depth: int
+    parent_id: str = ""
+    condition: str  # baseline | web | graph | combined (the attacker's info access)
+    breach_enhanced: bool = False
+    attack_success: bool = False
+    personalization: str = "generic"
+    personalization_grounded: int = 0
+    foothold: bool = False
+    control_held: str = ""  # which defence stopped it; empty when the node fell
+    run_id: str = ""
+    pkg: dict[str, Any] | None = None  # extracted PKG summary, None if not compromised
+
+
+class AttackGraphEdge(APIModel):
+    """A pivot the emulator attempted from a compromised node to an adjacent persona."""
+
+    src_id: str
+    dst_id: str
+    rel_type: str
+    rel_id: str = ""
+    pivot_context: dict[str, Any] = Field(default_factory=dict)
+    led_to_compromise: bool = False
+
+
+class CampaignResult(APIModel):
+    campaign_id: str
+    experiment_id: str
+    world_id: str
+    seed: int
+    regime: str
+    entry_id: str
+    entry_name: str
+    goal: CampaignGoal
+    target_mode: str
+    mitigation: str | None = None
+    max_depth: int
+    max_nodes: int
+    provider: str
+    model: str
+    threat: str
+    channel: str
+    nodes: list[CampaignNodeResult] = Field(default_factory=list)
+    edges: list[AttackGraphEdge] = Field(default_factory=list)
+    objective_reached: bool = False
+    objective_reached_at_depth: int | None = None
+    metrics: dict[str, Any] = Field(default_factory=dict)
+    content_hash: str = ""
+    label: str = (
+        "Synthetic, inert multi-stage attack emulation over a fictional persona graph. "
+        "Initial access, PKG extraction, and lateral movement are modelled, not performed."
+    )
